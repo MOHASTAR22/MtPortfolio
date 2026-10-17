@@ -1,0 +1,920 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Mohamed Hamada</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Cairo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: Minecraft GUI look. Textured dirt background in light brown (or obsidian black) with bevelled inventory panels and a hotbar of four tabs. */
+:root {
+  --bg: #c8a06f;
+  --pat: #c19868;
+  --pat2: #cfa977;
+  --panel: #e2c8a0;
+  --slot: #b08a5a;
+  --fg: #130d08;
+  --muted: #3e2b16;
+  --accent: #1a120b;
+  --accent-fg: #ecd6af;
+  --hi: #f1dfbf;
+  --lo: #9a784a;
+  --edge: #130d08;
+  --sel: #fbf1dc;
+  --tshadow: #8f6c40;
+  --font-display: "Pixelify Sans", "Cairo", system-ui, sans-serif;
+  --font-body: "Cairo", system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #0f0b08;
+  --pat: #130e0a;
+  --pat2: #0c0906;
+  --panel: #1c1510;
+  --slot: #0f0b08;
+  --fg: #f1e3cc;
+  --muted: #b09c84;
+  --accent: #d4a574;
+  --accent-fg: #120d08;
+  --hi: #3b2e22;
+  --lo: #070504;
+  --edge: #000000;
+  --sel: #f1e3cc;
+  --tshadow: #4a3826;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background-color: var(--bg);
+  background-size: 96px 96px;
+  image-rendering: pixelated;
+  color: var(--fg); font-family: var(--font-body); font-size: 17px; line-height: 1.75;
+  padding-block: 24px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; position: relative; z-index: 1; }
+.orbs { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; contain: strict; }
+.orbs span { position: absolute; bottom: -14px; background: var(--accent); opacity: 0; animation: float linear infinite; will-change: transform, opacity; }
+:root[data-theme="light"] .orbs span { background: var(--hi); }
+@keyframes float {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: .5; }
+  90% { opacity: .5; }
+  100% { transform: translateY(-112vh); opacity: 0; }
+}
+
+.bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mark { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 700; font-size: 18px; letter-spacing: .04em; }
+.mark svg { display: block; width: 28px; height: 28px; shape-rendering: crispEdges; }
+.tools { display: flex; gap: 8px; }
+.tools button {
+  font: 700 15px var(--font-display); min-width: 44px; height: 42px; padding: 0 14px; background: var(--panel); color: var(--fg);
+  border: 3px solid var(--edge); box-shadow: inset 3px 3px 0 var(--hi), inset -3px -3px 0 var(--lo); cursor: pointer; display: inline-grid; place-items: center;
+}
+.tools button:active, .btn:active { transform: translate(2px, 2px); }
+button:focus-visible, a:focus-visible, .cb-pre:focus-visible { outline: 3px dashed var(--fg); outline-offset: 3px; }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 10px; padding: 4px; }
+.tabs button {
+  font: 700 16px var(--font-display); background: var(--panel); color: var(--fg); padding: 9px 18px; cursor: pointer;
+  border: 3px solid var(--edge); box-shadow: inset 3px 3px 0 var(--hi), inset -3px -3px 0 var(--lo);
+}
+.tabs button[aria-selected="true"] {
+  background: var(--accent); color: var(--accent-fg);
+  box-shadow: 0 0 0 3px var(--sel), inset 3px 3px 0 rgba(255,255,255,.18), inset -3px -3px 0 rgba(0,0,0,.35);
+}
+.pane { display: flex; flex-direction: column; gap: 36px; }
+.pane:not([hidden]) { animation: fade .16s linear; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+.panel { background: var(--panel); border: 3px solid var(--edge); box-shadow: inset 3px 3px 0 var(--hi), inset -3px -3px 0 var(--lo); padding: 20px; min-width: 0; }
+
+.hero { display: grid; grid-template-columns: 1.15fr .85fr; gap: 32px; align-items: center; }
+.hero > div { min-width: 0; }
+.hello { font-family: var(--font-display); font-weight: 700; font-size: 18px; margin: 0 0 6px; animation: rise .5s steps(6) .05s backwards; }
+h1 {
+  font-family: var(--font-display); font-weight: 700; font-size: clamp(44px, 9vw, 88px); line-height: 1.05; margin: 0 0 16px;
+  text-shadow: 4px 4px 0 var(--tshadow); text-wrap: balance; animation: rise .5s steps(6) .12s backwards;
+}
+[lang="ar"] h1 { font-family: var(--font-body); font-weight: 800; line-height: 1.3; text-shadow: 3px 3px 0 var(--tshadow); }
+.role {
+  display: inline-block; background: var(--accent); color: var(--accent-fg); font-family: var(--font-display); font-weight: 700; font-size: 20px;
+  padding: 2px 16px; margin: 0 0 16px; border: 3px solid var(--edge); animation: rise .5s steps(6) .2s backwards;
+}
+[lang="ar"] .role { font-family: var(--font-body); font-weight: 800; }
+.tag { font-size: clamp(18px, 3vw, 22px); color: var(--muted); margin: 0; max-width: 34ch; animation: rise .5s steps(6) .28s backwards; }
+
+.code { font-family: var(--font-mono), var(--font-body); font-size: 14px; line-height: 1.8; overflow-x: auto; }
+.code .dots { display: flex; gap: 6px; margin-bottom: 10px; }
+.code .dots i { width: 10px; height: 10px; background: var(--lo); display: block; }
+.code pre { margin: 0; font: inherit; white-space: pre; }
+.code .k { color: var(--muted); }
+.code .s { font-weight: 600; }
+:root[data-theme="dark"] .code .s { color: var(--accent); }
+.caret { display: inline-block; width: .6em; height: 1.1em; background: var(--fg); vertical-align: text-bottom; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat b { font-family: var(--font-display); font-weight: 700; font-size: clamp(40px, 7vw, 64px); line-height: 1.1; font-variant-numeric: tabular-nums; text-shadow: 3px 3px 0 var(--tshadow); }
+.stat span { color: var(--muted); font-size: 16px; }
+
+h2 { font-family: var(--font-display); font-size: 16px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin: 0 0 10px; }
+[lang="ar"] h2 { font-family: var(--font-body); letter-spacing: 0; text-transform: none; font-size: 17px; }
+.about { display: grid; grid-template-columns: 1.2fr .8fr; gap: 20px; align-items: stretch; }
+.about p { margin: 0; max-width: 56ch; }
+blockquote {
+  margin: 0; font-family: var(--font-display); font-weight: 500; font-size: clamp(22px, 3.4vw, 28px); line-height: 1.45; text-wrap: balance;
+  display: flex; align-items: center; background: var(--accent); color: var(--accent-fg); border: 3px solid var(--edge); padding: 20px; min-width: 0;
+}
+[lang="ar"] blockquote { font-family: var(--font-body); font-weight: 600; }
+
+.contact { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.card { display: flex; flex-direction: column; gap: 6px; }
+.card .lbl { font-family: var(--font-display); font-size: 15px; color: var(--muted); font-weight: 700; }
+.card .val { font-family: var(--font-mono); font-size: 20px; font-weight: 600; overflow-wrap: anywhere; direction: ltr; text-align: start; }
+[dir="rtl"] .card .val { text-align: right; }
+.card .note { color: var(--muted); font-size: 15px; margin: 0; }
+.mc { flex-direction: row; align-items: center; gap: 20px; }
+.mc .txt { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.skin { background: var(--slot); border: 3px solid var(--edge); box-shadow: inset 3px 3px 0 var(--lo), inset -3px -3px 0 var(--hi); padding: 10px; flex: none; }
+.skin canvas { display: block; width: 64px; height: 128px; image-rendering: pixelated; animation: bob 1.4s steps(2) infinite; }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+.row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.btn {
+  font: 700 16px var(--font-display); padding: 8px 18px; background: var(--accent); color: var(--accent-fg); text-decoration: none; display: inline-block;
+  border: 3px solid var(--edge); box-shadow: inset 3px 3px 0 rgba(255,255,255,.18), inset -3px -3px 0 rgba(0,0,0,.35); cursor: pointer;
+}
+[lang="ar"] .btn { font-family: var(--font-body); }
+.btn:hover { filter: brightness(1.15); }
+.btn.inv { background: var(--accent-fg); color: var(--accent); padding: 4px 14px; font-size: 14px; }
+
+.info-head { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.info-head h3 { font-family: var(--font-display); font-weight: 700; font-size: clamp(28px, 5.5vw, 48px); line-height: 1.2; margin: 0; text-wrap: balance; text-shadow: 3px 3px 0 var(--tshadow); }
+[lang="ar"] .info-head h3 { font-family: var(--font-body); font-weight: 800; line-height: 1.45; }
+.info-head p { margin: 0; color: var(--muted); max-width: 58ch; }
+
+.plugins { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.slot {
+  background: var(--slot); border: 3px solid var(--edge); box-shadow: inset 3px 3px 0 var(--lo), inset -3px -3px 0 var(--hi); padding: 10px 14px; min-width: 0;
+}
+.plugins li {
+  display: flex; flex-direction: column; gap: 8px; direction: ltr; text-align: left; overflow-wrap: anywhere;
+}
+.ph { display: flex; gap: 10px; align-items: baseline; font-family: var(--font-mono); font-size: 16px; font-weight: 600; }
+.ph i { font-style: normal; color: var(--muted); font-weight: 400; font-size: 12px; font-variant-numeric: tabular-nums; }
+.pd { margin: 0; color: var(--muted); font-family: var(--font-body); font-size: 14px; line-height: 1.55; }
+[dir="rtl"] .pd { direction: rtl; text-align: right; }
+.cmds { display: flex; flex-wrap: wrap; gap: 6px; }
+.cmds code { font-family: var(--font-mono); font-size: 12.5px; background: var(--panel); padding: 1px 7px; }
+.cmds .empty { unicode-bidi: plaintext; color: var(--muted); font-size: 14px; }
+:root[data-theme="dark"] .slot { color: var(--fg); }
+
+.cb { display: flex; flex-direction: column; border: 3px solid var(--edge); min-width: 0; }
+.cb-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; background: var(--accent); color: var(--accent-fg); }
+.cb-head b { font-family: var(--font-mono); font-size: 14px; font-weight: 600; direction: ltr; }
+.cb-pre {
+  margin: 0; padding: 16px; overflow: auto; max-height: 520px; direction: ltr; text-align: left; tab-size: 4;
+  font: 400 13px/1.65 var(--font-mono); background: var(--panel); color: var(--fg); white-space: pre; contain: content;
+}
+.what { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.what .slot { display: flex; flex-direction: column; gap: 2px; }
+.what b { font-family: var(--font-display); font-size: 18px; }
+[lang="ar"] .what b { font-family: var(--font-body); }
+.what span { color: var(--muted); font-size: 15px; line-height: 1.6; }
+.feats { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.feats li { font-weight: 600; font-size: 15px; padding: 4px 14px; }
+.app { display: flex; flex-direction: column; gap: 12px; }
+.app h4 { font-family: var(--font-display); font-size: 22px; margin: 0; }
+[lang="ar"] .app h4 { font-family: var(--font-body); font-weight: 800; }
+.app p { margin: 0; color: var(--muted); }
+
+@media (max-width: 760px) {
+  .hero, .about, .contact, .what { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: 1fr; }
+  .pane { gap: 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; }
+  .orbs { display: none; }
+}
+</style>
+
+<div class="orbs" id="orbs" aria-hidden="true"></div>
+<div class="wrap">
+  <div class="bar">
+    <span class="mark">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><polygon points="8,1 15,4.5 8,8 1,4.5" fill="var(--hi)" stroke="var(--edge)" stroke-width="1"/><polygon points="1,4.5 8,8 8,15 1,11.5" fill="var(--slot)" stroke="var(--edge)" stroke-width="1"/><polygon points="15,4.5 8,8 8,15 15,11.5" fill="var(--accent)" stroke="var(--edge)" stroke-width="1"/></svg>
+      moha180022
+    </span>
+    <div class="tools">
+      <button type="button" id="theme"></button>
+      <button type="button" id="lang">EN</button>
+    </div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tab-home" aria-selected="true" aria-controls="pane-home" data-i="tabHome"></button>
+    <button type="button" role="tab" id="tab-info" aria-selected="false" aria-controls="pane-info" data-i="tabInfo"></button>
+    <button type="button" role="tab" id="tab-scripts" aria-selected="false" aria-controls="pane-scripts" data-i="tabScripts"></button>
+    <button type="button" role="tab" id="tab-apps" aria-selected="false" aria-controls="pane-apps" data-i="tabApps"></button>
+  </div>
+
+  <main class="pane" id="pane-home" role="tabpanel" aria-labelledby="tab-home">
+    <section class="hero">
+      <div>
+        <p class="hello" data-i="hello"></p>
+        <h1 data-i="name"></h1>
+        <span class="role" data-i="role"></span>
+        <p class="tag" data-i="tag"></p>
+      </div>
+      <div class="code panel" aria-hidden="true">
+        <div class="dots"><i></i><i></i><i></i></div>
+        <pre id="code"></pre>
+      </div>
+    </section>
+
+    <section class="stats">
+      <div class="panel stat"><b data-i="ageNum"></b><span data-i="ageLbl"></span></div>
+      <div class="panel stat"><b data-i="expNum"></b><span data-i="expLbl"></span></div>
+      <div class="panel stat"><b data-i="plNum"></b><span data-i="plLbl"></span></div>
+    </section>
+
+    <section class="about">
+      <div class="panel">
+        <h2 data-i="aboutH"></h2>
+        <p data-i="about"></p>
+      </div>
+      <blockquote data-i="quote"></blockquote>
+    </section>
+
+    <section>
+      <h2 data-i="findH"></h2>
+      <div class="contact">
+        <div class="panel card">
+          <span class="lbl">Discord</span>
+          <span class="val" id="dc">moha180022</span>
+          <p class="note" data-i="dcNote"></p>
+          <div class="row"><button type="button" class="btn" data-copy="dc" data-i="copy"></button></div>
+        </div>
+        <div class="panel card mc">
+          <div class="skin"><canvas id="skin" width="16" height="32" role="img" aria-label="Minecraft skin"></canvas></div>
+          <div class="txt">
+            <span class="lbl">Minecraft</span>
+            <span class="val">moha18002</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <main class="pane" id="pane-info" role="tabpanel" aria-labelledby="tab-info" hidden>
+    <section class="info-head">
+      <h2 data-i="infoH"></h2>
+      <h3 data-i="infoT"></h3>
+      <p data-i="infoP"></p>
+    </section>
+    <ul class="plugins" id="plugins"></ul>
+  </main>
+
+  <main class="pane" id="pane-scripts" role="tabpanel" aria-labelledby="tab-scripts" hidden>
+    <section class="info-head">
+      <h2 data-i="scH"></h2>
+      <h3 data-i="scT"></h3>
+      <p data-i="scP"></p>
+    </section>
+    <section class="cb">
+      <div class="cb-head"><b>events.sk</b><button type="button" class="btn inv" data-copy="skript" data-i="copyCode"></button></div>
+<pre class="cb-pre" tabindex="0"><code id="skript">on break:
+    set {_blockName} to "%type of event-block%"
+
+    if {_blockName} contains "glazed terracotta" or "emerald block" or "diamond block" or "gold block" or "coal block" or "iron block" or "redstone block" or "lapis block":
+
+        set {_type} to type of event-block
+
+        cancel event
+        set block at event-location to air
+
+        set {_fortune} to level of fortune on player's tool
+        if {_fortune} is not set:
+            set {_fortune} to 0
+
+        set {_maxDrop} to 1 + {_fortune}
+        set {_amount} to a random integer between 1 and {_maxDrop}
+
+        give {_amount} of {_type} to player
+
+on death of player:
+    set {_drops::*} to drops
+    clear drops
+
+    set {_loc} to location of victim
+    loop {_drops::*}:
+        drop loop-value at {_loc}
+
+on place of cobweb:
+    wait 20 seconds
+    if block at event-location is cobweb:
+        set block at event-location to air
+
+on place:
+    if player's gamemode is survival:
+        if event-block is not cobweb:
+            cancel event</code></pre>
+    </section>
+    <section>
+      <h2 data-i="scWhat"></h2>
+      <div class="what">
+        <div class="slot"><b data-i="sc1t"></b><span data-i="sc1"></span></div>
+        <div class="slot"><b data-i="sc2t"></b><span data-i="sc2"></span></div>
+        <div class="slot"><b data-i="sc3t"></b><span data-i="sc3"></span></div>
+        <div class="slot"><b data-i="sc4t"></b><span data-i="sc4"></span></div>
+      </div>
+    </section>
+  </main>
+
+  <main class="pane" id="pane-apps" role="tabpanel" aria-labelledby="tab-apps" hidden>
+    <section class="info-head">
+      <h2 data-i="apH"></h2>
+      <h3 data-i="apT"></h3>
+      <p data-i="apP"></p>
+    </section>
+    <section class="panel app">
+      <h4 data-i="apName"></h4>
+      <ul class="feats">
+        <li class="slot" data-i="apF1"></li>
+        <li class="slot" data-i="apF2"></li>
+        <li class="slot" data-i="apF3"></li>
+        <li class="slot" data-i="apF4"></li>
+      </ul>
+    </section>
+    <section>
+      <h2 data-i="apCodeH"></h2>
+      <div class="cb">
+        <div class="cb-head"><b>staff-application.html</b><button type="button" class="btn inv" data-copy="staff" data-i="copyCode"></button></div>
+<pre class="cb-pre" tabindex="0"><code id="staff">&lt;title&gt;Minecraft Staff Application&lt;/title&gt;
+&lt;meta name="claude:viewport-fit-sides" content="cover"&gt;
+&lt;link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&amp;family=Pixelify+Sans:wght@500;700&amp;display=swap"&gt;
+&lt;style&gt;
+/* Layout: one centered column styled like an in-game GUI panel; a row of 11 blocks fills in as questions are answered. */
+:root {
+  --bg: #e6eae3;
+  --panel: #f6f8f4;
+  --field: #ffffff;
+  --fg: #1b2420;
+  --muted: #55625b;
+  --line: #b9c3bb;
+  --line-dark: #8c998f;
+  --accent: #3f8a2c;
+  --accent-fg: #ffffff;
+  --accent-soft: #d5e8cc;
+  --danger: #b3261e;
+  --font-display: "Pixelify Sans", "Cairo", system-ui, sans-serif;
+  --font-body: "Cairo", system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14181a; --panel: #1e2427; --field: #151a1c; --fg: #e8eee9; --muted: #9aa8a0;
+    --line: #36423b; --line-dark: #0c0f10; --accent: #6bc04b; --accent-fg: #0f1a0b;
+    --accent-soft: #24361d; --danger: #ff8a80; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14181a; --panel: #1e2427; --field: #151a1c; --fg: #e8eee9; --muted: #9aa8a0;
+  --line: #36423b; --line-dark: #0c0f10; --accent: #6bc04b; --accent-fg: #0f1a0b;
+  --accent-soft: #24361d; --danger: #ff8a80; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.7;
+  padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+.tools { display: flex; gap: 10px; align-items: stretch; }
+.theme {
+  display: grid; place-items: center; width: 42px; border: 2px solid var(--line-dark); background: var(--panel); color: var(--fg); cursor: pointer; padding: 0;
+}
+.theme:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.langs { display: inline-flex; border: 2px solid var(--line-dark); background: var(--panel); }
+.langs button {
+  font: 600 14px var(--font-body); padding: 6px 16px; border: 0; background: transparent; color: var(--fg); cursor: pointer; min-width: 84px;
+}
+.langs button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.langs button:focus-visible, .btn:focus-visible, input:focus-visible, textarea:focus-visible, .radio input:focus-visible + span {
+  outline: 3px solid var(--accent); outline-offset: 2px;
+}
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 7vw, 46px); line-height: 1.15; margin: 0; text-wrap: balance; }
+[lang="ar"] h1 { font-family: var(--font-body); font-weight: 800; line-height: 1.4; }
+.intro { margin: 0; color: var(--muted); max-width: 60ch; }
+.progress { display: flex; flex-direction: column; gap: 8px; }
+.blocks { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; }
+.blocks i { aspect-ratio: 1; background: var(--field); border: 2px solid var(--line); display: block; }
+.blocks i.on { background: var(--accent); border-color: var(--accent); }
+.count { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.panel { background: var(--panel); border: 2px solid var(--line-dark); box-shadow: inset 3px 3px 0 var(--field), inset -3px -3px 0 var(--line); padding: 22px; display: flex; flex-direction: column; gap: 22px; }
+.q { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.q label, .q .legend { font-weight: 600; display: flex; gap: 10px; align-items: baseline; }
+.num { font-family: var(--font-display); font-weight: 700; color: var(--accent); min-width: 2ch; font-variant-numeric: tabular-nums; }
+.hint { font-size: 13px; color: var(--muted); margin: 0; }
+input[type=text], input[type=number], textarea {
+  width: 100%; font: 400 16px var(--font-body); color: var(--fg); background: var(--field);
+  border: 2px solid var(--line); padding: 10px 12px; border-radius: 0; box-shadow: inset 2px 2px 0 var(--line);
+}
+textarea { resize: vertical; min-height: 104px; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: .7; }
+[aria-invalid="true"] { border-color: var(--danger) !important; }
+.err { color: var(--danger); font-size: 14px; margin: 0; min-height: 0; }
+.choices { display: flex; gap: 10px; flex-wrap: wrap; }
+.radio { position: relative; }
+.radio input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.radio span { display: block; padding: 8px 22px; border: 2px solid var(--line-dark); background: var(--field); font-weight: 600; }
+.radio input:checked + span { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.btn {
+  font: 700 16px var(--font-body); padding: 11px 26px; border: 2px solid var(--line-dark); background: var(--field); color: var(--fg); cursor: pointer;
+  box-shadow: 3px 3px 0 var(--line-dark);
+}
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--line-dark); }
+.status { font-size: 14px; color: var(--muted); }
+.result h2 { font-family: var(--font-display); font-size: 24px; margin: 0; }
+[lang="ar"] .result h2 { font-family: var(--font-body); font-weight: 800; }
+.result textarea { min-height: 280px; font-size: 14px; line-height: 1.6; }
+@media (max-width: 480px) {
+  .panel { padding: 16px; }
+  .blocks { gap: 3px; }
+}
+@media (prefers-reduced-motion: reduce) { .btn:active { transform: none; } }
+&lt;/style&gt;
+
+&lt;div class="wrap"&gt;
+  &lt;div class="top"&gt;
+    &lt;span class="brand" id="brand"&gt;&lt;/span&gt;
+    &lt;div class="tools"&gt;
+      &lt;button type="button" class="theme" id="theme"&gt;&lt;/button&gt;
+      &lt;div class="langs" role="group" aria-label="Language"&gt;
+        &lt;button type="button" id="btn-ar" aria-pressed="true"&gt;العربية&lt;/button&gt;
+        &lt;button type="button" id="btn-en" aria-pressed="false"&gt;English&lt;/button&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;h1 id="title"&gt;&lt;/h1&gt;
+  &lt;p class="intro" id="intro"&gt;&lt;/p&gt;
+  &lt;div class="progress" aria-live="polite"&gt;
+    &lt;div class="blocks" id="blocks"&gt;&lt;/div&gt;
+    &lt;span class="count" id="count"&gt;&lt;/span&gt;
+  &lt;/div&gt;
+
+  &lt;form class="panel" id="form" novalidate&gt;&lt;/form&gt;
+
+  &lt;section class="panel result" id="result" hidden&gt;
+    &lt;h2 id="res-title"&gt;&lt;/h2&gt;
+    &lt;p class="intro" id="res-note"&gt;&lt;/p&gt;
+    &lt;textarea id="res-text" readonly&gt;&lt;/textarea&gt;
+  &lt;/section&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+var Q = [
+  { id: "discord", type: "text" },
+  { id: "mc", type: "text" },
+  { id: "age", type: "number" },
+  { id: "avail", type: "textarea", rows: 2 },
+  { id: "why", type: "textarea" },
+  { id: "exp", type: "textarea" },
+  { id: "rule", type: "textarea" },
+  { id: "friend", type: "textarea" },
+  { id: "abuse", type: "textarea" },
+  { id: "admin", type: "textarea" },
+  { id: "proof", type: "yesno" },
+  { id: "accept", type: "textarea" }
+];
+var T = {
+  ar: {
+    brand: "سيرفر ماينكرافت", title: "التقديم على الإدارة",
+    intro: "أجب عن الأسئلة التالية بصدق ووضوح.",
+    q: [
+      "ما هو اسمك في ديسكورد؟", "ما هو اسمك داخل ماينكرافت؟", "كم عمرك؟",
+      "ما هي المنطقة الزمنية وكم ساعة تكون متاحًا يوميًا؟", "لماذا تريد الانضمام إلى الإدارة؟",
+      "هل لديك خبرة سابقة في الإدارة؟ اشرح خبرتك", "كيف ستتعامل مع لاعب يخالف القوانين؟",
+      "ماذا ستفعل إذا خالف أحد أصدقائك قوانين السيرفر؟", "ماذا ستفعل إذا أساء لاعب إلى أحد أفراد الإدارة؟",
+      "إذا اكتشفت أن إداريًا يستغل صلاحياته، كيف ستتصرف؟", "هل تستطيع تقديم أدلة واضحة قبل معاقبة اللاعبين؟",
+      "لماذا يجب أن نقبلك ضمن فريق الإدارة؟"
+    ],
+    ph: ["مثال: steve#0001", "مثال: Steve_123", "مثال: 17", "مثال: توقيت القاهرة، من 4 إلى 6 ساعات يوميًا"],
+    yes: "نعم", no: "لا",
+    required: "هذا الحقل مطلوب.", ageBad: "اكتب عمرًا صحيحًا بين 8 و99.",
+    progress: function (n) { return "تمت الإجابة على " + n + " من 12"; },
+    submit: "إرسال الطلب", resTitle: "تم تسجيل طلبك",
+    resNote: "هذه إجاباتك كما كتبتها.",
+    docTitle: "طلب تقديم على الإدارة", yn: { yes: "نعم", no: "لا" }
+  },
+  en: {
+    brand: "Minecraft Server", title: "Staff Application",
+    intro: "Answer the questions below honestly and clearly.",
+    q: [
+      "What is your Discord username?", "What is your Minecraft username?", "How old are you?",
+      "What is your time zone and how many hours a day are you available?", "Why do you want to join the staff?",
+      "Do you have previous staff experience? Describe it", "How would you handle a player who breaks the rules?",
+      "What would you do if one of your friends broke the server rules?", "What would you do if a player insulted a staff member?",
+      "If you found a staff member abusing their permissions, what would you do?", "Can you provide clear evidence before punishing players?",
+      "Why should we accept you into the staff team?"
+    ],
+    ph: ["e.g. steve#0001", "e.g. Steve_123", "e.g. 17", "e.g. Cairo time, 4 to 6 hours a day"],
+    yes: "Yes", no: "No",
+    required: "This field is required.", ageBad: "Enter a valid age between 8 and 99.",
+    progress: function (n) { return n + " of 12 answered"; },
+    submit: "Submit application", resTitle: "Your application is recorded",
+    resNote: "These are your answers as you wrote them.",
+    docTitle: "Staff Application", yn: { yes: "Yes", no: "No" }
+  }
+};
+
+var lang = "ar";
+var form = document.getElementById("form");
+var blocksEl = document.getElementById("blocks");
+
+function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+
+// Build form once
+Q.forEach(function (q, i) {
+  var d = document.createElement("div");
+  d.className = "q";
+  var html = "";
+  if (q.type === "yesno") {
+    html += '&lt;div class="legend" id="lg-' + q.id + '"&gt;&lt;span class="num"&gt;' + (i + 1) + '&lt;/span&gt;&lt;span class="qt"&gt;&lt;/span&gt;&lt;/div&gt;';
+    html += '&lt;div class="choices" role="radiogroup" aria-labelledby="lg-' + q.id + '"&gt;' +
+      '&lt;label class="radio"&gt;&lt;input type="radio" name="proof" id="proof-yes" value="yes"&gt;&lt;span class="t-yes"&gt;&lt;/span&gt;&lt;/label&gt;' +
+      '&lt;label class="radio"&gt;&lt;input type="radio" name="proof" id="proof-no" value="no"&gt;&lt;span class="t-no"&gt;&lt;/span&gt;&lt;/label&gt;&lt;/div&gt;';
+  } else {
+    html += '&lt;label for="f-' + q.id + '"&gt;&lt;span class="num"&gt;' + (i + 1) + '&lt;/span&gt;&lt;span class="qt"&gt;&lt;/span&gt;&lt;/label&gt;';
+    if (q.type === "textarea") html += '&lt;textarea id="f-' + q.id + '" rows="' + (q.rows || 4) + '"&gt;&lt;/textarea&gt;';
+    else html += '&lt;input id="f-' + q.id + '" type="' + q.type + '"' + (q.type === "number" ? ' inputmode="numeric" min="8" max="99"' : ' autocomplete="off"') + '&gt;';
+  }
+  html += '&lt;p class="err" id="e-' + q.id + '" hidden&gt;&lt;/p&gt;';
+  d.innerHTML = html;
+  form.appendChild(d);
+  var b = document.createElement("i");
+  blocksEl.appendChild(b);
+});
+var act = document.createElement("div");
+act.className = "actions";
+act.innerHTML = '&lt;button type="submit" class="btn primary" id="submit"&gt;&lt;/button&gt;';
+form.appendChild(act);
+
+function val(q) {
+  if (q.type === "yesno") {
+    var c = form.querySelector('input[name="proof"]:checked');
+    return c ? c.value : "";
+  }
+  return document.getElementById("f-" + q.id).value.trim();
+}
+
+function updateProgress() {
+  var n = 0;
+  Q.forEach(function (q, i) {
+    var on = val(q) !== "";
+    if (on) n++;
+    blocksEl.children[i].className = on ? "on" : "";
+  });
+  document.getElementById("count").textContent = T[lang].progress(n);
+}
+
+function applyLang(l) {
+  lang = l;
+  var t = T[l];
+  var root = document.documentElement;
+  root.lang = l; root.dir = l === "ar" ? "rtl" : "ltr";
+  document.getElementById("btn-ar").setAttribute("aria-pressed", String(l === "ar"));
+  document.getElementById("btn-en").setAttribute("aria-pressed", String(l === "en"));
+  document.getElementById("brand").textContent = t.brand;
+  document.getElementById("title").textContent = t.title;
+  document.getElementById("intro").textContent = t.intro;
+  var qs = form.querySelectorAll(".qt");
+  for (var i = 0; i &lt; qs.length; i++) qs[i].textContent = t.q[i];
+  Q.forEach(function (q, i) {
+    var el = document.getElementById("f-" + q.id);
+    if (el &amp;&amp; t.ph[i] !== undefined) el.placeholder = t.ph[i];
+  });
+  form.querySelector(".t-yes").textContent = t.yes;
+  form.querySelector(".t-no").textContent = t.no;
+  document.getElementById("submit").textContent = t.submit;
+  document.getElementById("res-title").textContent = t.resTitle;
+  document.getElementById("res-note").textContent = t.resNote;
+  Q.forEach(function (q) { var e = document.getElementById("e-" + q.id); if (!e.hidden) showErr(q, e.dataset.kind); });
+  if (!document.getElementById("result").hidden) buildResult();
+  updateProgress();
+  store("staff-app-lang", l);
+}
+
+function showErr(q, kind) {
+  var e = document.getElementById("e-" + q.id);
+  e.dataset.kind = kind;
+  e.textContent = kind === "age" ? T[lang].ageBad : T[lang].required;
+  e.hidden = false;
+  var f = document.getElementById("f-" + q.id);
+  if (f) f.setAttribute("aria-invalid", "true");
+}
+function clearErr(q) {
+  var e = document.getElementById("e-" + q.id);
+  e.hidden = true;
+  var f = document.getElementById("f-" + q.id);
+  if (f) f.removeAttribute("aria-invalid");
+}
+
+function saveDraft() {
+  var o = {};
+  Q.forEach(function (q) { o[q.id] = val(q); });
+  store("staff-app-draft", JSON.stringify(o));
+}
+
+form.addEventListener("input", function () {
+  Q.forEach(function (q) { if (val(q) !== "") clearErr(q); });
+  updateProgress(); saveDraft();
+});
+form.addEventListener("change", function () { updateProgress(); saveDraft(); });
+
+function buildResult() {
+  var t = T[lang];
+  var lines = [t.docTitle, ""];
+  Q.forEach(function (q, i) {
+    var v = val(q);
+    if (q.type === "yesno") v = t.yn[v] || "";
+    lines.push((i + 1) + ". " + t.q[i]);
+    lines.push(v);
+    lines.push("");
+  });
+  document.getElementById("res-text").value = lines.join("\n").replace(/\s+$/, "");
+}
+
+form.addEventListener("submit", function (ev) {
+  ev.preventDefault();
+  var first = null;
+  Q.forEach(function (q) {
+    var v = val(q), bad = null;
+    if (v === "") bad = "required";
+    else if (q.type === "number") {
+      var n = Number(v);
+      if (!(n &gt;= 8 &amp;&amp; n &lt;= 99)) bad = "age";
+    }
+    if (bad) { showErr(q, bad); if (!first) first = q; } else clearErr(q);
+  });
+  if (first) {
+    var target = first.type === "yesno" ? document.getElementById("proof-yes") : document.getElementById("f-" + first.id);
+    target.focus();
+    return;
+  }
+  buildResult();
+  form.hidden = true;
+  var r = document.getElementById("result");
+  r.hidden = false;
+  r.scrollIntoView({ block: "start" });
+});
+
+var themeBtn = document.getElementById("theme");
+function currentTheme() {
+  return document.documentElement.getAttribute("data-theme") ||
+    (window.matchMedia &amp;&amp; matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+}
+function applyTheme(th) {
+  document.documentElement.setAttribute("data-theme", th);
+  themeBtn.setAttribute("aria-label", th === "dark" ? "Light mode / الوضع الفاتح" : "Dark mode / الوضع الداكن");
+  themeBtn.innerHTML = th === "dark" ? ICON_SUN : ICON_MOON;
+  store("staff-app-theme", th);
+}
+var ICON_SUN = '&lt;svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"&gt;&lt;circle cx="12" cy="12" r="4"/&gt;&lt;path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/&gt;&lt;/svg&gt;';
+var ICON_MOON = '&lt;svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"&gt;&lt;path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/&gt;&lt;/svg&gt;';
+themeBtn.addEventListener("click", function () { applyTheme(currentTheme() === "dark" ? "light" : "dark"); });
+var savedTheme = load("staff-app-theme");
+applyTheme(savedTheme === "dark" || savedTheme === "light" ? savedTheme : currentTheme());
+
+document.getElementById("btn-ar").addEventListener("click", function () { applyLang("ar"); });
+document.getElementById("btn-en").addEventListener("click", function () { applyLang("en"); });
+
+// Restore draft and language
+try {
+  var d = JSON.parse(load("staff-app-draft") || "null");
+  if (d) Q.forEach(function (q) {
+    if (!d[q.id]) return;
+    if (q.type === "yesno") { var r = document.getElementById("proof-" + d[q.id]); if (r) r.checked = true; }
+    else document.getElementById("f-" + q.id).value = d[q.id];
+  });
+} catch (e) {}
+applyLang(load("staff-app-lang") === "en" ? "en" : "ar");
+&lt;/script&gt;</code></pre>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+var PLUGINS = [["ViaVersion", "/viaversion list | /viaversion dump", "يسمح للاعبين بإصدارات أحدث من السيرفر بالدخول إليه.", "Lets players on newer Minecraft versions join your server."], ["EssentialsX", "/kit | /spawn | /sethome | /tpa | /pay", "الحزمة الأساسية للسيرفر وفيها الكيتات والانتقال والبيوت والاقتصاد وأوامر الإدارة.", "The core server toolkit with kits and teleports and homes and economy and admin commands."], ["WorldEdit", "//wand | //set | //copy | //paste | //undo", "يعدل البلوكات والمناطق الكبيرة بسرعة بالتحديد والنسخ واللصق.", "Edits large areas fast by selecting and copying and pasting."], ["WorldGuard", "/rg define <id> | /rg flag <id> <flag> <value> | /rg list", "يحمي المناطق ويتحكم بما هو مسموح فيها مثل القتال والبناء والكسر.", "Protects regions and controls what is allowed in them like PvP and building and breaking."], ["SkinsRestorer", "/skin set <name> | /skin clear | /sr reload", "يعرض سكنات اللاعبين في السيرفرات غير الأصلية ويسمح بتغييرها.", "Shows player skins on offline-mode servers and lets them change them."], ["Vault", "/vault-info | /vault-convert", "جسر يربط بلجنات الاقتصاد والصلاحيات والشات ببعضها.", "A bridge that connects economy and permissions and chat plugins together."], ["Multiverse-Core", "/mv create <name> <env> | /mv tp <world> | /mv list", "ينشئ عدة عوالم ويدير الانتقال بينها.", "Creates multiple worlds and manages travel between them."], ["ClearLagg", "/lagg clear | /lagg gc | /lagg killmobs", "ينظف الأغراض والكائنات الزائدة تلقائيًا لتقليل اللاج.", "Automatically clears extra items and mobs to reduce lag."], ["LuckPerms", "/lp editor | /lp user <player> parent set <group> | /lp user <player> permission set <perm> true", "نظام صلاحيات متقدم للرتب واللاعبين مع محرر ويب.", "An advanced permissions system for ranks and players with a web editor."], ["Hologram", "/hd create <name> <text> | /hd list | /hd delete <name>", "ينشئ نصوصًا عائمة في العالم للإعلانات والأسماء.", "Creates floating text in the world for announcements and labels."], ["PlaceholderAPI", "/papi list | /papi parse me <text> | /papi ecloud download <name>", "يوفر متغيرات تعرض بيانات اللاعب داخل البلجنات الأخرى.", "Provides placeholders that show player data inside other plugins."], ["AdvancedBan", "/ban <player> <reason> | /tempban <player> <time> <reason> | /mute <player> | /kick <player>", "نظام عقوبات للحظر والكتم والطرد والتحذير.", "A punishment system for bans and mutes and kicks and warnings."], ["AdvancedRegionMarket", "/arm signlinkmode <sellregion> | /arm setregionkind <kind> <region>", "يبيع ويؤجر مناطق WorldGuard للاعبين عن طريق اللافتات.", "Sells and rents WorldGuard regions to players using signs."], ["TAB", "/tab reload | /tab debug", "يخصص قائمة اللاعبين والأسماء فوق الرؤوس ولوحة النتائج.", "Customizes the player list and nametags and scoreboard."], ["ChatColor+", "/chatcolor [color]", "يتيح للاعبين تغيير لون كلامهم في الشات.", "Lets players change the color of their chat messages."], ["PlayerVaults", "/pv <number> | /pvdel <number>", "يعطي كل لاعب خزائن شخصية يفتحها من أي مكان.", "Gives each player personal vaults they can open anywhere."], ["GrimAC", "/grim alerts | /grim profile <player> | /grim reload", "نظام مضاد للغش يكشف الهاكرز بدقة.", "An anti-cheat that detects hacked clients accurately."], ["HubThat", "/hub | /sethub | /setspawn | /spawn", "ينقل اللاعبين إلى اللوبي ويحدد نقطة السبون.", "Teleports players to the hub and sets the spawn point."], ["ItemEdit", "/itemedit name <text> | /itemedit lore add <text> | /itemedit enchant <name> <level>", "يعدل اسم الغرض ووصفه وسحراته مباشرة من اللعبة.", "Edits an item's name and lore and enchants right in game."], ["ItemAdder", "/ia", "يضيف أغراضًا وبلوكات ومجسمات مخصصة بحزمة موارد.", "Adds custom items and blocks and models using a resource pack."], ["NV", "/nv", "يفعل الرؤية الليلية للاعب بأمر واحد.", "Turns on night vision for the player with one command."], ["Trash", "/trash", "يفتح سلة قمامة للتخلص من الأغراض.", "Opens a trash bin to throw items away."], ["EnderChest", "/enderchest", "يفتح صندوق الإندر من أي مكان.", "Opens the ender chest from anywhere."], ["ZNPCs", "/znpcs create <id> <type> | /znpcs list | /znpcs delete <id>", "ينشئ شخصيات NPC بسكنات وأوامر.", "Creates NPCs with skins and actions."], ["CombatLogX", "/combatlogx reload | /combatlogx tag <player> | /combatlogx untag <player>", "يمنع الخروج أثناء القتال بعلامة قتال.", "Stops players from logging out during combat with a combat tag."], ["CoreProtect", "/co inspect | /co lookup | /co rollback | /co restore", "يسجل كل تغيير في البلوكات ويرجعه عند التخريب.", "Logs every block change and can roll it back after griefing."], ["Citizens", "/npc create <name> | /npc remove | /npc skin <name>", "ينشئ شخصيات NPC تتحرك وتتفاعل.", "Creates NPCs that move and interact."], ["DiscordSRV", "/discord link | /discordsrv reload", "يربط شات السيرفر بقناة في ديسكورد.", "Links the server chat with a Discord channel."], ["ProtocolLib", "/protocol | /packet", "مكتبة للتعامل مع حزم الشبكة تعتمد عليها بلجنات كثيرة.", "A library for working with network packets that many plugins depend on."], ["FastAsyncWorldEdit", "//wand | //set | //undo | //schem save <name>", "نسخة أسرع من WorldEdit للتعديلات الكبيرة.", "A faster WorldEdit for very large edits."], ["DeluxeMenus", "/dm list | /dm open <menu> | /dm reload", "يصمم قوائم GUI مخصصة من ملفات الإعداد.", "Builds custom GUI menus from config files."], ["LiteBans", "/ban | /tempban | /mute | /history <player>", "نظام عقوبات مع قاعدة بيانات وتاريخ كامل.", "A punishment system with a database and full history."], ["ChestShop", "/iteminfo | /cstoggle", "متاجر بين اللاعبين بالصناديق واللافتات.", "Player shops made with chests and signs."], ["QuickShop", "/qs create <price> | /qs price <price> | /qs remove", "متاجر صناديق سهلة بين اللاعبين.", "Easy chest shops between players."], ["CrazyCrates", "/cc open <crate> | /cc keys | /cc reload", "صناديق حظ ومفاتيح بمكافآت.", "Crates with keys and rewards."], ["ExcellentCrates", "/crates", "صناديق حظ متقدمة بتأثيرات ومكافآت.", "Advanced crates with effects and rewards."], ["Shopkeepers", "/shopkeepers give | /shopkeepers list | /shopkeepers remove", "تجار NPC يبيعون ويشترون الأغراض.", "NPC shopkeepers that buy and sell items."], ["NuVotifier", "/nvreload", "يستقبل تصويتات السيرفر من مواقع التصويت.", "Receives server votes from voting sites."], ["BetterRTP", "/rtp | /rtp reload", "ينقل اللاعب إلى مكان عشوائي في العالم.", "Teleports a player to a random place in the world."], ["Spark", "/spark profiler start | /spark tps | /spark health", "أداة لقياس الأداء وكشف سبب اللاج.", "A performance profiler that finds the cause of lag."], ["AuctionHouse", "/ah | /ah sell <price>", "سوق مزاد يبيع فيه اللاعبون أغراضهم.", "An auction market where players sell their items."], ["PvPManager", "/pvp | /pvpmanager reload", "يدير القتال بين اللاعبين مع حماية وعلامة قتال.", "Manages PvP with spawn protection and combat tagging."], ["AdvancedEnchantments", "/ae", "سحرات مخصصة قوية للأسلحة والدروع.", "Powerful custom enchantments for weapons and armor."], ["EcoEnchants", "/ecoenchants reload", "يضيف عشرات السحرات المخصصة.", "Adds dozens of custom enchantments."], ["PremiumVanish", "/vanish", "يخفي الإداري عن اللاعبين.", "Hides staff members from players."], ["ajLeaderboards", "/lb <board> | /ajlb reload", "لوحات ترتيب لأي متغير مثل القتلات.", "Leaderboards for any placeholder such as kills."], ["DeluxeTags", "/tags | /deluxetags reload", "ألقاب يختارها اللاعب وتظهر في الشات.", "Tags players can pick that show in chat."], ["PlayerPoints", "/points give <player> <amount> | /points look <player>", "عملة نقاط منفصلة عن الاقتصاد.", "A points currency separate from the economy."], ["TokenManager", "/tokens | /tokens send <player> <amount> | /tokens add <player> <amount>", "عملة توكنز ومتجر لصرفها.", "A tokens currency with a shop to spend it."], ["EconomyShopGUI", "/shop | /sellall", "متجر بواجهة لبيع وشراء الأغراض.", "A GUI shop for buying and selling items."], ["ViaBackwards", "", "يسمح للاعبين بإصدارات أقدم من السيرفر بالدخول وهو يعمل مع ViaVersion.", "Lets players on older versions join and it works with ViaVersion."], ["Catamines", "", "بلجن لمناجم السماء ومناجم السجن.", "A plugin for sky mines and prison mines."], ["TradeUI", "", "بلجن لتبادل الأغراض بين اللاعبين بواجهة.", "A plugin for trading items between players through a GUI."], ["ViaRewind", "", "يتيح للإصدارات القديمة جدًا الدخول وهو يعمل مع ViaVersion.", "Lets very old client versions join and it works with ViaVersion."]];
+var TABS = ["home", "info", "scripts", "apps"];
+var T = {
+  ar: {
+    tabHome: "الرئيسية", tabInfo: "بلجنز", tabScripts: "اسكربتات", tabApps: "مواقع تقديم",
+    hello: "أهلًا أنا", name: "محمد حماده", role: "مطور سيرفرات ماين كرافت",
+    tag: "لست مبرمجًا عاديًا. أبني بلجنات وأنظمة سيرفرات ماين كرافت من الصفر.",
+    ageNum: "17", ageLbl: "سنة من العمر", expNum: "3", expLbl: "سنوات خبرة", plNum: "28", plLbl: "بلجن بوكس بفبي أعرفها", empty: "ليس هناك أوامر",
+    aboutH: "نبذة",
+    about: "أبرمج لسيرفرات ماين كرافت منذ ثلاث سنوات وعمري سبعة عشر عامًا فقط. أكتب بلجنات للحماية والصلاحيات والاقتصاد والتجارة وغيرها. أعرف أيضًا أصمم مواقع ويب وأكتب اسكربتات Skript للسيرفرات. أهتم أن يعمل كل شيء بسلاسة دون لاج. وأكثر ما يسعدني أن أرى اللاعبين يستمتعون بشيء كتبته بنفسي.",
+    quote: "أنا أكتب الكود واللاعبون يصنعون الذكريات.",
+    findH: "تواصل معي", dcNote: "راسلني على ديسكورد.",
+    copy: "نسخ الاسم", copyCode: "نسخ الكود", copied: "تم النسخ",
+    infoH: "بلجنز", infoT: "أبرمج بوكس بفبي فقط", infoP: "هذه بلجنز البوكس بفبي التي أعرفها مع أهم أوامر كل واحد منها.",
+    scH: "اسكربتات", scT: "أعرف أكتب اسكربتات Skript", scP: "هذا مثال على الاسكربتات التي أكتبها للسيرفرات.",
+    scWhat: "ماذا يفعل هذا الاسكربت",
+    sc1t: "كسر البلوكات الثمينة", sc1: "عند كسر بلوك كامل مثل الألماس أو الزمرد أو الذهب يسقط البلوك نفسه وتزيد الكمية مع سحر الحظ.",
+    sc2t: "الموت", sc2: "عند موت لاعب تُجمع أغراضه وتُسقط في مكان موته.",
+    sc3t: "نسج العنكبوت", sc3: "النسج الذي يضعه اللاعب يختفي بعد 20 ثانية.",
+    sc4t: "وضع البلوكات", sc4: "في وضع البقاء لا يستطيع اللاعب وضع أي بلوك غير نسج العنكبوت.",
+    apH: "مواقع تقديم", apT: "مواقع تقديم مطورين أو إدارة تم تصميمها",
+    apP: "أصمم مواقع تقديم للسيرفرات سواء لفريق الإدارة أو للمطورين. هذا مثال جاهز وهذا كوده كاملًا.",
+    apName: "موقع تقديم إدارة ماين كرافت",
+    apF1: "12 سؤالًا", apF2: "عربي وإنجليزي", apF3: "وضع فاتح وداكن", apF4: "شريط تقدم وحفظ تلقائي",
+    apOpen: "افتح الموقع", apCodeH: "كود الموقع",
+    themeLabel: "تغيير الوضع", langBtn: "EN"
+  },
+  en: {
+    tabHome: "Home", tabInfo: "Plugins", tabScripts: "Scripts", tabApps: "Application sites",
+    hello: "Hi I'm", name: "Mohamed Hamada", role: "Minecraft Server Developer",
+    tag: "Not an ordinary programmer. I build Minecraft plugins and server systems from scratch.",
+    ageNum: "17", ageLbl: "years old", expNum: "3", expLbl: "years of experience", plNum: "28", plLbl: "BoxPvP plugins I know", empty: "Empty",
+    aboutH: "About",
+    about: "I have been developing for Minecraft servers for three years and I am only seventeen. I write plugins for protection and permissions and I build economy and trading systems. I also build websites and write Skript scripts for servers. I make sure everything runs smoothly without lag. What makes me happiest is watching players enjoy something I wrote myself.",
+    quote: "I write the code. Players make the memories.",
+    findH: "Find me", dcNote: "Message me on Discord.",
+    copy: "Copy name", copyCode: "Copy code", copied: "Copied",
+    infoH: "Plugins", infoT: "I develop BoxPvP only", infoP: "These are the BoxPvP plugins I know with the most important commands for each one.",
+    scH: "Scripts", scT: "I write Skript scripts", scP: "This is an example of the scripts I write for servers.",
+    scWhat: "What this script does",
+    sc1t: "Breaking valuable blocks", sc1: "Breaking a full block like diamond or emerald or gold drops the block itself and the amount grows with Fortune.",
+    sc2t: "Death", sc2: "When a player dies their items are collected and dropped where they died.",
+    sc3t: "Cobwebs", sc3: "A cobweb a player places disappears after 20 seconds.",
+    sc4t: "Placing blocks", sc4: "In survival mode a player cannot place any block except cobweb.",
+    apH: "Application sites", apT: "Staff and developer application sites I designed",
+    apP: "I design application sites for servers whether for the staff team or for developers. This is a ready example with its full code below.",
+    apName: "Minecraft staff application site",
+    apF1: "12 questions", apF2: "Arabic and English", apF3: "Light and dark mode", apF4: "Progress bar and autosave",
+    apOpen: "Open the site", apCodeH: "Site code",
+    themeLabel: "Toggle theme", langBtn: "عربي"
+  }
+};
+T.ar.plNum = T.en.plNum = String(PLUGINS.length);
+var CODE = {
+  ar: '<span class="k">الاسم</span> محمد = {\n  العمر: <span class="s">17</span>\n  الدور: <span class="s">"مطور سيرفرات ماين كرافت"</span>\n  الخبرة: <span class="s">"3 سنوات"</span>\n  ديسكورد: <span class="s">"moha180022"</span>\n  ماين_كرافت: <span class="s">"moha18002"</span>\n}<span class="caret"></span>',
+  en: '<span class="k">const</span> mohamed = {\n  age: <span class="s">17</span>\n  role: <span class="s">"minecraft server dev"</span>\n  experience: <span class="s">"3 years"</span>\n  discord: <span class="s">"moha180022"</span>\n  minecraft: <span class="s">"moha18002"</span>\n}<span class="caret"></span>'
+};
+var lang = "ar";
+function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+
+var list = document.getElementById("plugins");
+PLUGINS.forEach(function (p, i) {
+  var li = document.createElement("li");
+  li.className = "slot";
+  var n = i + 1;
+  var head = document.createElement("div");
+  head.className = "ph";
+  var num = document.createElement("i");
+  num.textContent = n < 10 ? "0" + n : String(n);
+  var nm = document.createElement("b");
+  nm.textContent = p[0];
+  head.appendChild(num); head.appendChild(nm);
+  var box = document.createElement("div");
+  box.className = "cmds";
+  if (p[1]) {
+    p[1].split(" | ").forEach(function (c) {
+      var code = document.createElement("code");
+      code.textContent = c;
+      box.appendChild(code);
+    });
+  } else {
+    var em = document.createElement("span");
+    em.className = "empty";
+    em.setAttribute("data-i", "empty");
+    box.appendChild(em);
+  }
+  var pd = document.createElement("p");
+  pd.className = "pd";
+  pd.setAttribute("data-ar", p[2]);
+  pd.setAttribute("data-en", p[3]);
+  li.appendChild(head); li.appendChild(pd); li.appendChild(box);
+  list.appendChild(li);
+});
+
+var orbs = document.getElementById("orbs");
+for (var o = 0; o < 8; o++) {
+  var sp = document.createElement("span");
+  var sz = o % 3 === 0 ? 8 : 5;
+  sp.style.cssText = "left:" + ((o * 7.3 + 3) % 100) + "%;width:" + sz + "px;height:" + sz + "px;animation-duration:" + (11 + (o % 5) * 2.4) + "s;animation-delay:-" + (o * 1.9) + "s";
+  orbs.appendChild(sp);
+}
+
+function applyLang(l) {
+  lang = l;
+  var t = T[l], r = document.documentElement;
+  r.lang = l; r.dir = l === "ar" ? "rtl" : "ltr";
+  var els = document.querySelectorAll("[data-i]");
+  for (var i = 0; i < els.length; i++) els[i].textContent = t[els[i].getAttribute("data-i")];
+  document.getElementById("code").innerHTML = CODE[l];
+  var pds = document.querySelectorAll(".pd");
+  for (var k = 0; k < pds.length; k++) pds[k].textContent = pds[k].getAttribute("data-" + l);
+  document.getElementById("lang").textContent = t.langBtn;
+  document.getElementById("theme").setAttribute("aria-label", t.themeLabel);
+  store("mh-lang", l);
+}
+
+var SUN = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true"><rect x="8" y="8" width="8" height="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>';
+var MOON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="miter" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>';
+function paintBg() {
+  try {
+    var cs = getComputedStyle(document.documentElement);
+    var cols = [cs.getPropertyValue("--bg").trim(), cs.getPropertyValue("--pat").trim(), cs.getPropertyValue("--pat2").trim()];
+    var n = 12, px = 8, cv = document.createElement("canvas");
+    cv.width = cv.height = n * px;
+    var g = cv.getContext("2d"), seed = 7;
+    for (var y = 0; y < n; y++) {
+      for (var x = 0; x < n; x++) {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        var r = (seed >> 8) % 10;
+        g.fillStyle = cols[r < 5 ? 0 : (r < 8 ? 1 : 2)];
+        g.fillRect(x * px, y * px, px, px);
+      }
+    }
+    document.body.style.backgroundImage = "url(" + cv.toDataURL() + ")";
+  } catch (e) {}
+}
+function applyTheme(th) {
+  document.documentElement.setAttribute("data-theme", th);
+  paintBg();
+  document.getElementById("theme").innerHTML = th === "dark" ? SUN : MOON;
+  store("mh-theme2", th);
+}
+document.getElementById("theme").addEventListener("click", function () {
+  applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+});
+document.getElementById("lang").addEventListener("click", function () { applyLang(lang === "ar" ? "en" : "ar"); });
+
+function showTab(name) {
+  TABS.forEach(function (n) {
+    document.getElementById("tab-" + n).setAttribute("aria-selected", String(n === name));
+    document.getElementById("pane-" + n).hidden = n !== name;
+  });
+  store("mh-tab", name);
+}
+TABS.forEach(function (n) {
+  document.getElementById("tab-" + n).addEventListener("click", function () { showTab(n); });
+});
+
+var copyBtns = document.querySelectorAll("[data-copy]");
+for (var c = 0; c < copyBtns.length; c++) {
+  copyBtns[c].addEventListener("click", function () {
+    var btn = this, key = btn.getAttribute("data-copy");
+    var node = key === "dc" ? document.getElementById("dc") : document.getElementById(key);
+    var text = node.textContent;
+    function done() {
+      btn.textContent = T[lang].copied;
+      setTimeout(function () { btn.textContent = T[lang][btn.getAttribute("data-i")]; }, 1500);
+    }
+    function fallback() {
+      var rng = document.createRange(); rng.selectNodeContents(node);
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(rng);
+    }
+    try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+  });
+}
+
+// Draw the front view of the skin from the 64x64 texture
+var img = new Image();
+img.onload = function () {
+  var cv = document.getElementById("skin"), g = cv.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  function part(sx, sy, w, h, dx, dy) { g.drawImage(img, sx, sy, w, h, dx, dy, w, h); }
+  part(4, 20, 4, 12, 4, 20);
+  part(20, 52, 4, 12, 8, 20);
+  part(20, 20, 8, 12, 4, 8);
+  part(44, 20, 4, 12, 0, 8);
+  part(36, 52, 4, 12, 12, 8);
+  part(8, 8, 8, 8, 4, 0);
+  part(4, 36, 4, 12, 4, 20);
+  part(4, 52, 4, 12, 8, 20);
+  part(20, 36, 8, 12, 4, 8);
+  part(44, 36, 4, 12, 0, 8);
+  part(52, 52, 4, 12, 12, 8);
+  part(40, 8, 8, 8, 4, 0);
+};
+img.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAACnUlEQVR4Xu2YXQ7aMBCE84JAIHEobtCT9Bh9gkP1ALz3FqgHgGqj7GiwHdY2+XHU/aRRjHez3rEtRaLrDI7H4+uTuq577XY7PHksTxSq5HA4vESYGOD5Ya03UnNViElZSM2pZE5i4XwoFKokZwNmRU0OpwnJHN+AlKa4AavDN4DNL3UDVse6AXraY1rdwLdYN0B+C8/ns38yQ/62sW5ASLgR23af8Rn8hGxG8xsQGlpac33OtO5YfcyL4dPp1BuXJ49zN8N6/1NcmpAxOkugeVpPx0hIIDXVZKq+xn0DdIf0VHisOyi63W5v4pj1vhXHsYwgOfrl4TESRrDq9zEpps1ogzqWGH8Brtdrb56/BDnvf4qjmwT6vualxjw3hqyFHwM815+IFJEnj7X45XKRZJy+jGVO42oqfF83iudScW0kROtjIsCKW/U11jevT5EixcXc/X5/nc9nzMtY5rQBRd/nmqn6YVy7mQGrfh/TXYQhGZcSvq/PsfoUn51hrTdSc4o2NiaLML9UFshlEJ0AbiYlizC/VBbIZRCdAG4mJQvkUnMlskAug+gEcDMpWSCXmiuRBXIZRCvgxScVNbeGslmjuSXWzGaJZtZYI5s1msteM4fH44GxAncZRIt+K2G/34/+LlEtcJdBtOi3oiaSv0tUC9xlEC3akmqBuwxmMfzj1883hfFc1QJ3GUSLTiE1/vvvn15hPFe1wF0G0aJT6L/fgHBDalULjjeDaNGWVAvcOY7jOI7jOI7jOI7jLID1h4oFchlENwCbTckCuQyiG4DNpmSBXAbRDcBmU7JALoNog7C5JdUMS5rmtZrBN+Cbq19LM8cfGipVLb4BDRGdaolqach/bKpEtfgGNER0qiWqpSH/sakS1eIbMBH/AOxiijjw2/xYAAAAAElFTkSuQmCC";
+
+applyTheme(load("mh-theme2") === "dark" ? "dark" : "light");
+applyLang(load("mh-lang") === "en" ? "en" : "ar");
+var savedTab = load("mh-tab");
+showTab(TABS.indexOf(savedTab) > -1 ? savedTab : "home");
+</script>
+
+</body></html>
